@@ -1,0 +1,1 @@
+{"version": "2014.07.21.20.20.22", "sublime_text": ">=3000", "dependencies": [], "platforms": ["osx", "windows"], "url": "https://github.com/ligershark/SchemaValidator", "description": "A Sublime Text 3 extension for validating JSON Schemas"}

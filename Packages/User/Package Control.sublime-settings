@@ -6,6 +6,7 @@
 	[
 		"Git",
 		"Package Control",
-		"Schema Validator"
+		"Schema Validator",
+		"Swift"
 	]
 }

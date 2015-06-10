@@ -41,5 +41,17 @@
 	{
 		"keys": ["ctrl+d"],
 		"command": "find_under_expand"
-	}
+	},
+
+	{ 
+		"keys": ["super+shift+m"],
+	  "command": "expand_selection",
+	  "args": {"to": "brackets"}
+	},
+	
+	{
+		"keys": ["super+m"],
+		"command": "move_to",
+		"args": {"to": "brackets"}
+	},
 ]

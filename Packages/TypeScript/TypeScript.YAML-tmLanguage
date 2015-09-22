@@ -18,17 +18,19 @@ repository:
     end: '(?=$|[;=\}\{])|(?<=\})'
     patterns:
     - include: '#type-annotation'
+    - include: '#string'
+    - include: '#comment'
 
   control-statement:
     name: keyword.control.ts
-    match: \b(break|catch|continue|debugger|declare|do|else|finally|for|if|return|switch|throw|try|while|with|super)\b
+    match: (?<!\.)\b(break|catch|continue|debugger|declare|do|else|finally|for|if|return|switch|throw|try|while|with|super|case|default)\b
 
   switch-case: 
     name: case.expr.ts
-    begin: '\b(case|default)\b'
+    begin: '(?<!\.)\b(case|default)\b'
     beginCaptures:
       '1': { name: keyword.control.ts }
-    end: ':'  
+    end: ':'
     patterns:
     - include: '#expression'
 
@@ -60,26 +62,45 @@ repository:
 
   object-declaration:
     name: meta.declaration.object.ts
-    begin: '\b(?:(export)\s+)?\b(class|interface)\b(?:\s+([a-zA-Z_$][\w$]*))'
+    begin: '\b(?:(export)\s+)?\b(?:(abstract)\s+)?\b(class|interface)\b'
     beginCaptures:
       '1': { name: storage.modifier.ts }
-      '2': { name: storage.type.ts }
-      '3': { name: entity.name.class.ts }
+      '2': { name: storage.modifier.ts }
+      '3': { name: storage.type.ts }
     end: (?<=\})
     endCaptures:
       '1': { name: brace.curly.ts }
     patterns:
-    - include: '#type-parameters'
-    - include: '#object-heritage'
-    - include: '#object-body'
     - include: '#comment'
+    - include: '#object-heritage' # Must be before object-name to consume the "extends" keyword.
+    - include: '#object-name'
+    - include: '#type-parameters' # Must be applied after object-name e.g. interface KeyValuePair<K, V>
+    - include: '#object-body'
+
+  object-name:
+    name: meta.object.name.ts
+    match: '[a-zA-Z_$][\w$]*'
+    captures:
+      '0': { name: 'entity.name.class.ts' }
 
   object-heritage:
     name: meta.object.heritage.ts
-    match: (?:\b(extends|implements)\b|,)(?:\s+([a-zA-Z_$][.\w$]*))
+    begin: '(?:\b(extends|implements))'
+    beginCaptures:
+      '1': { name: keyword.other.ts }
+    end: (?=\{)
+    endCaptures:
+      '1': { name: brace.curly.ts }
+    patterns:
+    - include: '#comment'
+    - include: '#type-parameters'
+    - include: '#object-heritage-parent'
+
+  object-heritage-parent:
+    name: meta.object.heritage.parent.ts
+    match: '(?:\s*([a-zA-Z_$][\w$]*))'
     captures:
-       '1': { name: keyword.other.ts }
-       '2': { name: storage.type.ts } 
+      '1': { name: storage.type.ts }
 
   object-body:
     name: meta.object.body.ts
@@ -90,6 +111,7 @@ repository:
     endCaptures:
       '0': { name: meta.brace.curly.ts }
     patterns:
+    - include: "#string"
     - include: '#comment'
     - include: '#field-declaration'
     - include: '#method-declaration'
@@ -121,25 +143,37 @@ repository:
     beginCaptures:
       '1': { name: variable.ts }
       '2': { name: keyword.operator.ts }
-    end: '(?=\}|;|,|\n)|(?<=\})'
+    end: '(?=\}|;|,)|(?<=\})'
     patterns:
     - include: '#expression'
 
   method-declaration:
     name: meta.method.declaration.ts
-    begin: '(?:\b(get|set)\s+)?(?:(new)|(?:([a-zA-Z_$][\.\w$]*)\s*(\??)))?\s*(?=\(|\<)'
+    begin: '\b(?:(abstract)\s+)?\b(?:(public|private|protected)\s+)?(?:(get|set)\s+)?(?:(new)|(?:([a-zA-Z_$][\.\w$]*)\s*(\??)))?\s*(?=\(|\<)'
     beginCaptures:
-      '1': { name: storage.type.property.ts }
-      '2': { name: keyword.operator.ts }
-      '3': { name: entity.name.function.ts }
+      '1': { name: storage.modifier.ts }
+      '2': { name: storage.modifier.ts }
+      '3': { name: storage.type.property.ts }
       '4': { name: keyword.operator.ts }
-    end: '(?=\}|;|,|\n)|(?<=\})'
+      '5': { name: entity.name.function.ts }
+      '6': { name: keyword.operator.ts }
+    end: '(?=\}|;|,)|(?<=\})'
     patterns:
     - include: '#comment'
     - include: '#type-parameters'
     - include: '#function-type-parameters'
     - include: '#type-annotation'
+    - include: '#method-overload-declaration'
     - include: '#decl-block'
+
+  method-overload-declaration:
+    name: meta.method.overload.declaration.ts
+    match: '\b(?:(public|private|protected)\s+)?(?:(new)|(?:([a-zA-Z_$][\.\w$]*)\s*(\??)))?\s*(?=\(|\<)'
+    captures:
+      '1': { name: storage.modifier.ts }
+      '2': { name: keyword.operator.ts }
+      '3': { name: entity.name.function.ts }
+      '4': { name: keyword.operator.ts }
 
   indexer-declaration:
     name: meta.indexer.declaration.ts
@@ -163,25 +197,27 @@ repository:
       
   function-declaration:
     name: meta.function.ts
-    begin: \b(function)\b(?:\s+([a-zA-Z_$][\w$]*))?\s*
+    begin: \b(?:(export)\s+)?(function\b)(?:\s+([a-zA-Z_$][\w$]*))?\s*
     beginCaptures:
-      '1': { name: storage.type.function.ts }
-      '2': { name: entity.name.function.ts }
+      '1': { name: storage.modifier.ts }
+      '2': { name: storage.type.function.ts }
+      '3': { name: entity.name.function.ts }
     end: (?=;|\})|(?<=\})
     patterns:
-    - include: '#function-overload-declaration'
     - include: '#comment'
     - include: '#type-parameters'
     - include: '#function-type-parameters'
     - include: '#return-type'
+    - include: '#function-overload-declaration'
     - include: '#decl-block'
 
   function-overload-declaration:
     name: meta.function.overload.ts
-    match: \b(function)\b(?:\s+([a-zA-Z_$][\w$]*))?\s*
+    match: \b(?:(export)\s+)?(function\b)(?:\s+([a-zA-Z_$][\w$]*))?\s*
     captures:
-      '1': { name: storage.type.function.ts }
-      '2': { name: entity.name.function.ts }
+      '1': { name: storage.modifier.ts }
+      '2': { name: storage.type.function.ts }
+      '3': { name: entity.name.function.ts }
 
   block:
     name: meta.block.ts
@@ -208,7 +244,7 @@ repository:
 
   parameter-name:
     name: parameter.name.ts
-    match: '(?:\s*\b(public|private)\b\s+)?(\.\.\.)?\s*([a-zA-Z_$][\w$]*)\s*(\??)'
+    match: '(?:\s*\b(public|private|protected)\b\s+)?(\.\.\.)?\s*([a-zA-Z_$][\w$]*)\s*(\??)'
     captures:
       '1': { name: storage.modifier.ts }
       '2': { name: keyword.operator.ts }
@@ -228,6 +264,8 @@ repository:
     end: (?=$|[,);\}\]]|//)|(?==[^>])|(?<=[\}>\]\)]|[a-zA-Z_$])\s*(?=\{)
     patterns:
     - include: '#type'
+    - include: '#string'
+    - include: '#comment'
 
   type:
     name: meta.type.ts
@@ -285,7 +323,7 @@ repository:
     begin: '=>'
     beginCaptures:
       '0': { name: keyword.operator.ts }
-    end: (?=\s*[,\)\{=;]|//|$)
+    end: (?=\s*[,\)\{=;>]|//|$)
     patterns:
     - include: '#type'
 
@@ -309,9 +347,10 @@ repository:
 
   type-parameters:
     name: meta.type.parameters.ts
-    begin: '<'
+    begin: '([a-zA-Z_$][\w$]*)?(<)'
     beginCaptures:
-      '0': { name: meta.brace.angle.ts }
+      '1': { name: entity.name.type.ts }
+      '2': { name: meta.brace.angle.ts }
     end: '(?=$)|(>)'  
     endCaptures:
       '2': { name: meta.brace.angle.ts }
@@ -350,8 +389,9 @@ repository:
     - include: '#logic-operator'
     - include: '#assignment-operator'
     - include: '#storage-keyword'
-    - include: '#control-statement'
+    - include: '#function-call'
     - include: '#switch-case'
+    - include: '#control-statement'
     
   for-in-simple:
     name: forin.expr.ts
@@ -359,7 +399,13 @@ repository:
     captures:
       '1': { name: storage.type.ts }
       '3': { name: keyword.operator.ts }
-      
+
+  function-call:
+    name: functioncall.expr.ts
+    patterns:
+    - include: '#type-parameters'
+    - include: '#paren-expression'
+
   cast:
     name: cast.expr.ts
     # To differentiate a cast vs a relational <, this regexp tries to use the surrounding context
@@ -368,10 +414,10 @@ repository:
     # '<=' and '<<=' are definately not type assertions, as they are assignment operators.
     begin: '(?:(?<=return|throw|yield|[=(,:>]))\s*(<)(?!<?\=)'
     beginCaptures:
-      '1': { name: keyword.operator.type.ts }
+      '1': { name: meta.brace.angle.ts }
     end: '>'
     endCaptures:
-      '0': { name: keyword.operator.type.ts }
+      '0': { name: meta.brace.angle.ts }
     patterns:
     - include: '#type'
 
@@ -381,9 +427,10 @@ repository:
     beginCaptures:
       '1': { name: keyword.operator.ts }
     # new-expr ends just before any type or call arguments. Type arguments will be picked up by #cast.
-    end: '(?=[<(;]|$)'
+    end: '(?=[(;]|$)'
     patterns:
     - include: '#type'
+    - include: '#comment'
 
   object-member:
     name: meta.object.member.ts
@@ -394,7 +441,7 @@ repository:
 
   expression-operator:
     name: keyword.operator.ts
-    match: =>|\b(delete|export|import|in|instanceof|module|new|typeof|void)\b
+    match: =>|\b(delete|export|import|in|instanceof|module|namespace|new|typeof|void)\b
 
   arithmetic-operator:
     name: keyword.operator.arithmetic.ts

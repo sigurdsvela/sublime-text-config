@@ -1,11 +1,23 @@
 {
-	"color_scheme": "Packages/Color Scheme - Default/Monokai.tmTheme",
+	"always_show_minimap_viewport": false,
+	"bold_folder_labels": true,
+	"color_scheme": "Packages/Material Theme/schemes/Material-Theme.tmTheme",
+	"detect_indentation": false,
 	"font_size": 13,
 	"ignored_packages":
 	[
 		"Vintage"
 	],
-	"tab_size": 2,
-	"theme": "Default.sublime-theme",
-	"translate_tabs_to_spaces": true,
+	"line_padding_bottom": 3,
+	"line_padding_top": 3,
+	"material_theme_panel_separator": true,
+	"material_theme_small_statusbar": true,
+	"overlay_scroll_bars": "enabled",
+	"rulers":
+	[
+		80
+	],
+	"tab_size": 4,
+	"theme": "Material-Theme.sublime-theme",
+	"translate_tabs_to_spaces": true
 }

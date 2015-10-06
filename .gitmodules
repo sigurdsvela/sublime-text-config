@@ -1,0 +1,3 @@
+[submodule "Packages/User/PHP.sublime-snippets"]
+	path = Packages/User/PHP.sublime-snippets
+	url = https://github.com/sigurdsvela/PHP.sublime-snippets

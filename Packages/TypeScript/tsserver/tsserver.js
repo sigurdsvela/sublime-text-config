@@ -748,10 +748,9 @@ var ts;
     })(Debug = ts.Debug || (ts.Debug = {}));
     function copyListRemovingItem(item, list) {
         var copiedList = [];
-        for (var _i = 0; _i < list.length; _i++) {
-            var e = list[_i];
-            if (e !== item) {
-                copiedList.push(e);
+        for (var i = 0, len = list.length; i < len; i++) {
+            if (list[i] !== item) {
+                copiedList.push(list[i]);
             }
         }
         return copiedList;
@@ -1054,7 +1053,7 @@ var ts;
                     };
                 },
                 watchDirectory: function (path, callback, recursive) {
-                    return _fs.watch(path, { persistent: true, recursive: !!recursive }, function (eventName, relativeFileName) {
+                    return _fs.watch(path, { persisten: true, recursive: !!recursive }, function (eventName, relativeFileName) {
                         if (eventName === "rename") {
                             callback(!relativeFileName ? relativeFileName : ts.normalizePath(ts.combinePaths(path, relativeFileName)));
                         }
@@ -1535,7 +1534,6 @@ var ts;
         Merged_declaration_0_cannot_include_a_default_export_declaration_Consider_adding_a_separate_export_default_0_declaration_instead: { code: 2652, category: ts.DiagnosticCategory.Error, key: "Merged declaration '{0}' cannot include a default export declaration. Consider adding a separate 'export default {0}' declaration instead." },
         Non_abstract_class_expression_does_not_implement_inherited_abstract_member_0_from_class_1: { code: 2653, category: ts.DiagnosticCategory.Error, key: "Non-abstract class expression does not implement inherited abstract member '{0}' from class '{1}'." },
         Exported_external_package_typings_file_cannot_contain_tripleslash_references_Please_contact_the_package_author_to_update_the_package_definition: { code: 2654, category: ts.DiagnosticCategory.Error, key: "Exported external package typings file cannot contain tripleslash references. Please contact the package author to update the package definition." },
-        Exported_external_package_typings_can_only_be_in_d_ts_files_Please_contact_the_package_author_to_update_the_package_definition: { code: 2655, category: ts.DiagnosticCategory.Error, key: "Exported external package typings can only be in '.d.ts' files. Please contact the package author to update the package definition." },
         Exported_external_package_typings_file_0_is_not_a_module_Please_contact_the_package_author_to_update_the_package_definition: { code: 2656, category: ts.DiagnosticCategory.Error, key: "Exported external package typings file '{0}' is not a module. Please contact the package author to update the package definition." },
         Import_declaration_0_is_using_private_name_1: { code: 4000, category: ts.DiagnosticCategory.Error, key: "Import declaration '{0}' is using private name '{1}'." },
         Type_parameter_0_of_exported_class_has_or_is_using_private_name_1: { code: 4002, category: ts.DiagnosticCategory.Error, key: "Type parameter '{0}' of exported class has or is using private name '{1}'." },
@@ -3592,15 +3590,15 @@ var ts;
         return node.end - node.pos;
     }
     ts.getFullWidth = getFullWidth;
-    function arrayIsEqualTo(array1, array2, equaler) {
-        if (!array1 || !array2) {
-            return array1 === array2;
+    function arrayIsEqualTo(arr1, arr2, comparer) {
+        if (!arr1 || !arr2) {
+            return arr1 === arr2;
         }
-        if (array1.length !== array2.length) {
+        if (arr1.length !== arr2.length) {
             return false;
         }
-        for (var i = 0; i < array1.length; ++i) {
-            var equals = equaler ? equaler(array1[i], array2[i]) : array1[i] === array2[i];
+        for (var i = 0; i < arr1.length; ++i) {
+            var equals = comparer ? comparer(arr1[i], arr2[i]) : arr1[i] === arr2[i];
             if (!equals) {
                 return false;
             }
@@ -4503,6 +4501,15 @@ var ts;
         return !!node && (node.kind === 162 || node.kind === 161);
     }
     ts.isBindingPattern = isBindingPattern;
+    function isNodeDescendentOf(node, ancestor) {
+        while (node) {
+            if (node === ancestor)
+                return true;
+            node = node.parent;
+        }
+        return false;
+    }
+    ts.isNodeDescendentOf = isNodeDescendentOf;
     function isInAmbientContext(node) {
         while (node) {
             if (node.flags & (2 | 8192)) {
@@ -5509,6 +5516,16 @@ var ts;
         }
     }
     ts.getTypeParameterOwner = getTypeParameterOwner;
+    function arrayStructurallyIsEqualTo(array1, array2) {
+        if (!array1 || !array2) {
+            return false;
+        }
+        if (array1.length !== array2.length) {
+            return false;
+        }
+        return ts.arrayIsEqualTo(array1.sort(), array2.sort());
+    }
+    ts.arrayStructurallyIsEqualTo = arrayStructurallyIsEqualTo;
 })(ts || (ts = {}));
 var ts;
 (function (ts) {
@@ -13085,22 +13102,27 @@ var ts;
             }
             return type.resolvedBaseConstructorType;
         }
+        function hasClassBaseType(type) {
+            return !!ts.forEach(getBaseTypes(type), function (t) { return !!(t.symbol.flags & 32); });
+        }
         function getBaseTypes(type) {
+            var isClass = type.symbol.flags & 32;
+            var isInterface = type.symbol.flags & 64;
             if (!type.resolvedBaseTypes) {
-                if (type.symbol.flags & 32) {
+                if (!isClass && !isInterface) {
+                    ts.Debug.fail("type must be class or interface");
+                }
+                if (isClass) {
                     resolveBaseTypesOfClass(type);
                 }
-                else if (type.symbol.flags & 64) {
+                if (isInterface) {
                     resolveBaseTypesOfInterface(type);
-                }
-                else {
-                    ts.Debug.fail("type must be class or interface");
                 }
             }
             return type.resolvedBaseTypes;
         }
         function resolveBaseTypesOfClass(type) {
-            type.resolvedBaseTypes = emptyArray;
+            type.resolvedBaseTypes = type.resolvedBaseTypes || emptyArray;
             var baseContructorType = getBaseConstructorTypeOfClass(type);
             if (!(baseContructorType.flags & 80896)) {
                 return;
@@ -13129,10 +13151,15 @@ var ts;
                 error(type.symbol.valueDeclaration, ts.Diagnostics.Type_0_recursively_references_itself_as_a_base_type, typeToString(type, undefined, 1));
                 return;
             }
-            type.resolvedBaseTypes = [baseType];
+            if (type.resolvedBaseTypes === emptyArray) {
+                type.resolvedBaseTypes = [baseType];
+            }
+            else {
+                type.resolvedBaseTypes.push(baseType);
+            }
         }
         function resolveBaseTypesOfInterface(type) {
-            type.resolvedBaseTypes = [];
+            type.resolvedBaseTypes = type.resolvedBaseTypes || emptyArray;
             for (var _i = 0, _a = type.symbol.declarations; _i < _a.length; _i++) {
                 var declaration = _a[_i];
                 if (declaration.kind === 215 && ts.getInterfaceBaseTypeNodes(declaration)) {
@@ -13142,7 +13169,12 @@ var ts;
                         if (baseType !== unknownType) {
                             if (getTargetType(baseType).flags & (1024 | 2048)) {
                                 if (type !== baseType && !hasBaseType(baseType, type)) {
-                                    type.resolvedBaseTypes.push(baseType);
+                                    if (type.resolvedBaseTypes === emptyArray) {
+                                        type.resolvedBaseTypes = [baseType];
+                                    }
+                                    else {
+                                        type.resolvedBaseTypes.push(baseType);
+                                    }
                                 }
                                 else {
                                     error(declaration, ts.Diagnostics.Type_0_recursively_references_itself_as_a_base_type, typeToString(type, undefined, 1));
@@ -13440,7 +13472,7 @@ var ts;
             return createSignature(sig.declaration, sig.typeParameters, sig.parameters, sig.resolvedReturnType, sig.typePredicate, sig.minArgumentCount, sig.hasRestParameter, sig.hasStringLiterals);
         }
         function getDefaultConstructSignatures(classType) {
-            if (!getBaseTypes(classType).length) {
+            if (!hasClassBaseType(classType)) {
                 return [createSignature(undefined, classType.localTypeParameters, emptyArray, classType, undefined, 0, false, false)];
             }
             var baseConstructorType = getBaseConstructorTypeOfClass(classType);
@@ -14406,7 +14438,8 @@ var ts;
             var container = ts.getThisContainer(node, false);
             var parent = container && container.parent;
             if (parent && (ts.isClassLike(parent) || parent.kind === 215)) {
-                if (!(container.flags & 128)) {
+                if (!(container.flags & 128) &&
+                    (container.kind !== 144 || ts.isNodeDescendentOf(node, container.body))) {
                     return getDeclaredTypeOfClassOrInterface(getSymbolOfNode(parent)).thisType;
                 }
             }
@@ -15421,11 +15454,10 @@ var ts;
             }
             source = getErasedSignature(source);
             target = getErasedSignature(target);
-            var sourceLen = source.parameters.length;
             var targetLen = target.parameters.length;
             for (var i = 0; i < targetLen; i++) {
-                var s = source.hasRestParameter && i === sourceLen - 1 ? getRestTypeOfSignature(source) : getTypeOfSymbol(source.parameters[i]);
-                var t = target.hasRestParameter && i === targetLen - 1 ? getRestTypeOfSignature(target) : getTypeOfSymbol(target.parameters[i]);
+                var s = isRestParameterIndex(source, i) ? getRestTypeOfSignature(source) : getTypeOfSymbol(source.parameters[i]);
+                var t = isRestParameterIndex(target, i) ? getRestTypeOfSignature(target) : getTypeOfSymbol(target.parameters[i]);
                 var related = compareTypes(s, t);
                 if (!related) {
                     return 0;
@@ -15436,6 +15468,9 @@ var ts;
                 result &= compareTypes(getReturnTypeOfSignature(source), getReturnTypeOfSignature(target));
             }
             return result;
+        }
+        function isRestParameterIndex(signature, parameterIndex) {
+            return signature.hasRestParameter && parameterIndex >= signature.parameters.length - 1;
         }
         function isSupertypeOfEach(candidate, types) {
             for (var _i = 0; _i < types.length; _i++) {
@@ -16375,8 +16410,9 @@ var ts;
                         if (indexOfParameter < len) {
                             return getTypeAtPosition(contextualSignature, indexOfParameter);
                         }
-                        if (indexOfParameter === (func.parameters.length - 1) &&
-                            funcHasRestParameters && contextualSignature.hasRestParameter && func.parameters.length >= contextualSignature.parameters.length) {
+                        if (funcHasRestParameters &&
+                            indexOfParameter === (func.parameters.length - 1) &&
+                            isRestParameterIndex(contextualSignature, func.parameters.length - 1)) {
                             return getTypeOfSymbol(ts.lastOrUndefined(contextualSignature.parameters));
                         }
                     }
@@ -17496,7 +17532,7 @@ var ts;
                 return false;
             }
             if (spreadArgIndex >= 0) {
-                return signature.hasRestParameter && spreadArgIndex >= signature.parameters.length - 1;
+                return isRestParameterIndex(signature, spreadArgIndex);
             }
             if (!signature.hasRestParameter && adjustedArgCount > signature.parameters.length) {
                 return false;
@@ -18094,7 +18130,7 @@ var ts;
                 var contextualParameterType = getTypeAtPosition(context, i);
                 assignTypeToParameterAndFixTypeParameters(parameter, contextualParameterType, mapper);
             }
-            if (signature.hasRestParameter && context.hasRestParameter && signature.parameters.length >= context.parameters.length) {
+            if (signature.hasRestParameter && isRestParameterIndex(context, signature.parameters.length - 1)) {
                 var parameter = ts.lastOrUndefined(signature.parameters);
                 var contextualParameterType = getTypeOfSymbol(ts.lastOrUndefined(context.parameters));
                 assignTypeToParameterAndFixTypeParameters(parameter, contextualParameterType, mapper);
@@ -18105,7 +18141,9 @@ var ts;
                 for (var _i = 0, _a = node.name.elements; _i < _a.length; _i++) {
                     var element = _a[_i];
                     if (element.kind !== 187) {
-                        getSymbolLinks(getSymbolOfNode(element)).type = getTypeForBindingElement(element);
+                        if (element.name.kind === 69) {
+                            getSymbolLinks(getSymbolOfNode(element)).type = getTypeForBindingElement(element);
+                        }
                         assignBindingElementTypes(element);
                     }
                 }
@@ -19698,9 +19736,12 @@ var ts;
             if (promiseType === unknownType && compilerOptions.isolatedModules) {
                 return unknownType;
             }
-            var promiseConstructor = getMergedSymbol(promiseType.symbol);
+            var promiseConstructor = getNodeLinks(node.type).resolvedSymbol;
             if (!promiseConstructor || !symbolIsValue(promiseConstructor)) {
-                error(node, ts.Diagnostics.Type_0_is_not_a_valid_async_function_return_type, typeToString(promiseType));
+                var typeName = promiseConstructor
+                    ? symbolToString(promiseConstructor)
+                    : typeToString(promiseType);
+                error(node, ts.Diagnostics.Type_0_is_not_a_valid_async_function_return_type, typeName);
                 return unknownType;
             }
             var promiseConstructorType = getTypeOfSymbol(promiseConstructor);
@@ -24783,16 +24824,8 @@ var ts;
             diagnostics: diagnostics,
             sourceMaps: sourceMapDataList
         };
-        function isNodeDescendentOf(node, ancestor) {
-            while (node) {
-                if (node === ancestor)
-                    return true;
-                node = node.parent;
-            }
-            return false;
-        }
         function isUniqueLocalName(name, container) {
-            for (var node = container; isNodeDescendentOf(node, container); node = node.nextContainer) {
+            for (var node = container; ts.isNodeDescendentOf(node, container); node = node.nextContainer) {
                 if (node.locals && ts.hasProperty(node.locals, name)) {
                     if (node.locals[name].flags & (107455 | 1048576 | 8388608)) {
                         return false;
@@ -25822,32 +25855,36 @@ var ts;
                         write(".");
                     }
                 }
-                else if (modulekind !== 5) {
-                    var declaration = resolver.getReferencedImportDeclaration(node);
-                    if (declaration) {
-                        if (declaration.kind === 223) {
-                            write(getGeneratedNameForNode(declaration.parent));
-                            write(languageVersion === 0 ? "[\"default\"]" : ".default");
-                            return;
-                        }
-                        else if (declaration.kind === 226) {
-                            write(getGeneratedNameForNode(declaration.parent.parent.parent));
-                            var name_24 = declaration.propertyName || declaration.name;
-                            var identifier = ts.getSourceTextOfNodeFromSourceFile(currentSourceFile, name_24);
-                            if (languageVersion === 0 && identifier === "default") {
-                                write("[\"default\"]");
+                else {
+                    if (modulekind !== 5) {
+                        var declaration = resolver.getReferencedImportDeclaration(node);
+                        if (declaration) {
+                            if (declaration.kind === 223) {
+                                write(getGeneratedNameForNode(declaration.parent));
+                                write(languageVersion === 0 ? "[\"default\"]" : ".default");
+                                return;
                             }
-                            else {
-                                write(".");
-                                write(identifier);
+                            else if (declaration.kind === 226) {
+                                write(getGeneratedNameForNode(declaration.parent.parent.parent));
+                                var name_24 = declaration.propertyName || declaration.name;
+                                var identifier = ts.getSourceTextOfNodeFromSourceFile(currentSourceFile, name_24);
+                                if (languageVersion === 0 && identifier === "default") {
+                                    write("[\"default\"]");
+                                }
+                                else {
+                                    write(".");
+                                    write(identifier);
+                                }
+                                return;
                             }
-                            return;
                         }
                     }
-                    declaration = resolver.getReferencedNestedRedeclaration(node);
-                    if (declaration) {
-                        write(getGeneratedNameForNode(declaration.name));
-                        return;
+                    if (languageVersion !== 2) {
+                        var declaration = resolver.getReferencedNestedRedeclaration(node);
+                        if (declaration) {
+                            write(getGeneratedNameForNode(declaration.name));
+                            return;
+                        }
                     }
                 }
                 if (ts.nodeIsSynthesized(node)) {
@@ -30955,10 +30992,6 @@ var ts;
                             if (!ts.isExternalModule(importedFile)) {
                                 var start_2 = ts.getTokenPosOfNode(file.imports[i], file);
                                 fileProcessingDiagnostics.add(ts.createFileDiagnostic(file, start_2, file.imports[i].end - start_2, ts.Diagnostics.Exported_external_package_typings_file_0_is_not_a_module_Please_contact_the_package_author_to_update_the_package_definition, importedFile.fileName));
-                            }
-                            else if (!ts.fileExtensionIs(importedFile.fileName, ".d.ts")) {
-                                var start_3 = ts.getTokenPosOfNode(file.imports[i], file);
-                                fileProcessingDiagnostics.add(ts.createFileDiagnostic(file, start_3, file.imports[i].end - start_3, ts.Diagnostics.Exported_external_package_typings_can_only_be_in_d_ts_files_Please_contact_the_package_author_to_update_the_package_definition));
                             }
                             else if (importedFile.referencedFiles.length) {
                                 var firstRef = importedFile.referencedFiles[0];
@@ -37678,9 +37711,9 @@ var ts;
             log("getCompletionData: Get previous token 1: " + (new Date().getTime() - start));
             var contextToken = previousToken;
             if (contextToken && position <= contextToken.end && ts.isWord(contextToken.kind)) {
-                var start_4 = new Date().getTime();
+                var start_3 = new Date().getTime();
                 contextToken = ts.findPrecedingToken(contextToken.getFullStart(), sourceFile);
-                log("getCompletionData: Get previous token 2: " + (new Date().getTime() - start_4));
+                log("getCompletionData: Get previous token 2: " + (new Date().getTime() - start_3));
             }
             var node = currentToken;
             var isRightOfDot = false;
@@ -37902,9 +37935,9 @@ var ts;
                 if (contextToken.kind === 9
                     || contextToken.kind === 10
                     || ts.isTemplateLiteralKind(contextToken.kind)) {
-                    var start_5 = contextToken.getStart();
+                    var start_4 = contextToken.getStart();
                     var end = contextToken.getEnd();
-                    if (start_5 < position && position < end) {
+                    if (start_4 < position && position < end) {
                         return true;
                     }
                     if (position === end) {
@@ -42314,9 +42347,10 @@ var ts;
                 this.host = host;
                 this.project = project;
                 this.ls = null;
-                this.filenameToScript = {};
                 this.roots = [];
-                this.resolvedModuleNames = ts.createFileMap(ts.createGetCanonicalFileName(host.useCaseSensitiveFileNames));
+                var getCanonicalFileName = ts.createGetCanonicalFileName(host.useCaseSensitiveFileNames);
+                this.resolvedModuleNames = ts.createFileMap(getCanonicalFileName);
+                this.filenameToScript = ts.createFileMap(getCanonicalFileName);
                 this.moduleResolutionHost = {
                     fileExists: function (fileName) { return _this.fileExists(fileName); },
                     readFile: function (fileName) { return _this.host.readFile(fileName); }
@@ -42395,33 +42429,29 @@ var ts;
             };
             LSHost.prototype.removeReferencedFile = function (info) {
                 if (!info.isOpen) {
-                    this.filenameToScript[info.fileName] = undefined;
+                    this.filenameToScript.remove(info.fileName);
                     this.resolvedModuleNames.remove(info.fileName);
                 }
             };
             LSHost.prototype.getScriptInfo = function (filename) {
-                var scriptInfo = ts.lookUp(this.filenameToScript, filename);
+                var scriptInfo = this.filenameToScript.get(filename);
                 if (!scriptInfo) {
                     scriptInfo = this.project.openReferencedFile(filename);
                     if (scriptInfo) {
-                        this.filenameToScript[scriptInfo.fileName] = scriptInfo;
+                        this.filenameToScript.set(scriptInfo.fileName, scriptInfo);
                     }
-                }
-                else {
                 }
                 return scriptInfo;
             };
             LSHost.prototype.addRoot = function (info) {
-                var scriptInfo = ts.lookUp(this.filenameToScript, info.fileName);
-                if (!scriptInfo) {
-                    this.filenameToScript[info.fileName] = info;
+                if (!this.filenameToScript.contains(info.fileName)) {
+                    this.filenameToScript.set(info.fileName, info);
                     this.roots.push(info);
                 }
             };
             LSHost.prototype.removeRoot = function (info) {
-                var scriptInfo = ts.lookUp(this.filenameToScript, info.fileName);
-                if (scriptInfo) {
-                    this.filenameToScript[info.fileName] = undefined;
+                if (!this.filenameToScript.contains(info.fileName)) {
+                    this.filenameToScript.remove(info.fileName);
                     this.roots = copyListRemovingItem(info, this.roots);
                     this.resolvedModuleNames.remove(info.fileName);
                 }
@@ -42461,7 +42491,7 @@ var ts;
                 return this.host.directoryExists(path);
             };
             LSHost.prototype.lineToTextSpan = function (filename, line) {
-                var script = this.filenameToScript[filename];
+                var script = this.filenameToScript.get(filename);
                 var index = script.snap().index;
                 var lineInfo = index.lineNumberToInfo(line + 1);
                 var len;
@@ -42475,13 +42505,13 @@ var ts;
                 return ts.createTextSpan(lineInfo.offset, len);
             };
             LSHost.prototype.lineOffsetToPosition = function (filename, line, offset) {
-                var script = this.filenameToScript[filename];
+                var script = this.filenameToScript.get(filename);
                 var index = script.snap().index;
                 var lineInfo = index.lineNumberToInfo(line);
                 return (lineInfo.offset + offset - 1);
             };
             LSHost.prototype.positionToLineOffset = function (filename, position) {
-                var script = this.filenameToScript[filename];
+                var script = this.filenameToScript.get(filename);
                 var index = script.snap().index;
                 var lineOffset = index.charOffsetToLineNumberAndPos(position);
                 return { line: lineOffset.line, offset: lineOffset.offset + 1 };
@@ -42670,7 +42700,7 @@ var ts;
                 var _a = this.configFileToProjectOptions(project.projectFilename), succeeded = _a.succeeded, projectOptions = _a.projectOptions, error = _a.error;
                 var newRootFiles = projectOptions.files.map((function (f) { return _this.getCanonicalFileName(f); }));
                 var currentRootFiles = project.getRootFiles().map((function (f) { return _this.getCanonicalFileName(f); }));
-                if (!ts.arrayIsEqualTo(currentRootFiles && currentRootFiles.sort(), newRootFiles && newRootFiles.sort())) {
+                if (!ts.arrayStructurallyIsEqualTo(currentRootFiles, newRootFiles)) {
                     this.updateConfiguredProject(project);
                     this.updateProjectStructure();
                 }
@@ -44266,6 +44296,24 @@ var ts;
             return new Logger(fileName, detailLevel);
         }
         var logger = createLoggerFromEnv();
+        var pending = [];
+        var canWrite = true;
+        function writeMessage(s) {
+            if (!canWrite) {
+                pending.push(s);
+            }
+            else {
+                canWrite = false;
+                process.stdout.write(new Buffer(s, "utf8"), setCanWriteFlagAndWriteMessageIfNecessary);
+            }
+        }
+        function setCanWriteFlagAndWriteMessageIfNecessary() {
+            canWrite = true;
+            if (pending.length) {
+                writeMessage(pending.shift());
+            }
+        }
+        ts.sys.write = function (s) { return writeMessage(s); };
         var ioSession = new IOSession(ts.sys, logger);
         process.on('uncaughtException', function (err) {
             ioSession.logError(err, "unknown");

@@ -4,12 +4,12 @@
 		"command": "show_overlay",
 		"args": {"overlay": "command_palette", "text": "Snippet: "}
 	},
-	
+
 	{
 		"keys": ["alt+up"],
 		"command": "swap_line_up"
 	},
-	
+
 	{
 		"keys": ["alt+down"],
 		"command": "swap_line_down"
@@ -26,12 +26,12 @@
 		"command": "select_lines",
 		"args": {"forward": true}
 	},
-	
+
 	{
 		"keys": ["alt+super+down"],
 		"command": "duplicate_line"
 	},
-	
+
 	{
 		"keys": ["super+d"],
 		"command": "run_macro_file",
@@ -43,15 +43,17 @@
 		"command": "find_under_expand"
 	},
 
-	{ 
+	{
 		"keys": ["super+shift+m"],
 	  "command": "expand_selection",
 	  "args": {"to": "brackets"}
 	},
-	
+
 	{
 		"keys": ["super+m"],
 		"command": "move_to",
 		"args": {"to": "brackets"}
 	},
+
+    { "keys": ["super+ctrl+a"], "command": "alignment" }
 ]

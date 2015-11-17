@@ -5,10 +5,13 @@
 	],
 	"installed_packages":
 	[
+		"Alignment",
 		"ApacheConf.tmLanguage",
+		"Craft-Twig",
 		"HTML Mustache",
 		"JavaScriptNext - ES6 Syntax",
 		"Package Control",
+		"PHP-Twig",
 		"PhpDoc",
 		"Sass",
 		"Schema Validator",
